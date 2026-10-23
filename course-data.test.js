@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict'),D=require('./course-data.js');
+assert.equal(D.publicUrl('https://example.org/course#x'),'https://example.org/course');
+for(const u of ['javascript:alert(1)','http://localhost','http://127.0.0.1/a','http://2130706433','https://user:pass@example.org','https://x.local','http://[::1]'])assert.throws(()=>D.publicUrl(u));
+assert.equal(D.findRaces([{slug:'im703-kenting',name:'IRONMAN 70.3 Kenting'},{slug:'im-taiwan',name:'IRONMAN Taiwan'}],'2026 墾丁 113')[0].slug,'im703-kenting');
+assert.equal(D.yearOf('2025 Kenting'),'2025');
+const payload={race:{slug:'test-course',name:'TEST fixture',type:'70.3',date:'2026-11-01',course:[{discipline:'swim',distance_m:1868},{discipline:'bike',distance_m:89954,elev_gain_m:367},{discipline:'run',distance_m:22096,elev_gain_m:250}],typical_conditions:{air_temp_max_c:26.6,wind_avg_mps:10.9}}};
+const r=D.adaptRace(payload);assert.equal(r.group,'113');assert.equal(r.nominal.run,21.0975);assert.equal(r.candidates.run[0].value,22.096);assert.equal(r.values.wind,39.2);assert.equal(r.values.bikeClimb,367);assert.equal(r.values.water,undefined);assert.throws(()=>D.adaptRace({race:{slug:'../x',type:'full',course:[]}}));
+const t='Title: Fixture course 2025\nSWIM COURSE 1.5 km\nBIKE COURSE 40 km\nElevation gain 320 m\nRUN COURSE 10 km\nTotal ascent 70 m\n';
+const parsed=D.extractText(t,'https://example.org/course','51.5');for(const [k,v]of [['swim',1.5],['bike',40],['run',10],['bikeClimb',320],['runClimb',70]])assert.equal(parsed.candidates[k][0].value,v,k);
+const mixed=D.extractText('SWIM 1.5 km\nSWIM 1.9 km\nBIKE 40 km\nBIKE 90 km','https://example.org/course','51.5');assert.equal(mixed.candidates.swim.length,2);assert.equal(mixed.candidates.bike.length,2);
+const empty=D.extractText('image-only map','https://example.org/course','226');assert.ok(Object.values(empty.candidates).every(a=>!a.length));
+const cut=D.extractText('BIKE COURSE\nCut-off 90 minutes\nAid station 10 km\nDistance 90 km','https://example.org/course','113');assert.deepEqual(cut.candidates.bike.map(x=>x.value),[90]);
+console.log('PASS: URL validation, search aliases, source normalization, nominal vs derived distances, unit conversion, discipline extraction, mixed-course ambiguity, missing data and cut-off filtering.');
